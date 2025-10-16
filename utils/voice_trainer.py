@@ -6,6 +6,7 @@ Phase 2: LLM-based feature extraction for personalized newsletter generation
 import json
 from typing import List, Dict, Optional
 from supabase import create_client
+import streamlit as st
 import os
 from dotenv import load_dotenv
 from utils.auth import supabase  # Use authenticated client
@@ -13,12 +14,20 @@ from groq import Groq
 
 load_dotenv()
 
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
+
 class VoiceTrainer:
     """Manage user voice training and style profiles"""
     
     def __init__(self):
         self.supabase = supabase
-        self.groq_client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        self.groq_client = Groq(api_key=get_config("GROQ_API_KEY"))
     
     def upload_writing_sample(self, user_id: str, title: str, content: str, metadata: Dict = None) -> Dict:
         """Upload newsletter content, extract features, and store only features (no redundant content)"""

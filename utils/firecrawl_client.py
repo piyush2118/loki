@@ -7,6 +7,17 @@ import os
 from typing import List, Dict, Optional
 from datetime import datetime
 import streamlit as st
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
 
 try:
     from firecrawl import FirecrawlApp
@@ -20,7 +31,7 @@ class FirecrawlClient:
     
     def __init__(self):
         self.app = None
-        self.api_key = os.getenv("FIRECRAWL_API_KEY")
+        self.api_key = get_config("FIRECRAWL_API_KEY")
         
         if FIRECRAWL_AVAILABLE and self.api_key:
             try:

@@ -1,7 +1,19 @@
 import resend
+import streamlit as st
 import os
+from dotenv import load_dotenv
 
-resend.api_key = os.getenv("RESEND_API_KEY")
+load_dotenv()
+
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
+
+resend.api_key = get_config("RESEND_API_KEY")
 
 def send_newsletter(to_email: str, content: str):
     """Send the curated newsletter via email"""

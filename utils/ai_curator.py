@@ -1,13 +1,25 @@
 from groq import Groq
+import streamlit as st
 import os
 from typing import List, Dict, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
 
 def curate_newsletter(articles: list, user_topics: list, user_id: str = None, previous_feedback: Optional[Dict] = None, current_draft: Optional[str] = None, trending_context: Optional[Dict] = None):
     """Use Groq LLM to curate and summarize articles with user's voice training.
     previous_feedback can include: {'tags': [...], 'comment': '...'} to steer regeneration.
     """
     
-    client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+    client = Groq(api_key=get_config("GROQ_API_KEY"))
     
     # Get user's extracted features if available
     user_features = None

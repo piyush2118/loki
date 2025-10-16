@@ -12,6 +12,17 @@ import os
 from groq import Groq
 import statistics
 import numpy as np
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
 
 class TrendAnalyzer:
     """Basic trend detection using frequency analysis and simple NLP"""
@@ -191,7 +202,7 @@ class TrendAnalyzer:
             return []
         
         try:
-            client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+            client = Groq(api_key=get_config("GROQ_API_KEY"))
             
             # Prepare context for LLM
             context = "\n\n".join([

@@ -8,6 +8,18 @@ import json
 from datetime import datetime
 import urllib3
 import streamlit as st
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
+# Get config from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
 
 # Disable SSL warnings
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -717,9 +729,8 @@ def extract_twitter_username_with_llm(url: str) -> str:
     """
     try:
         from groq import Groq
-        import os
         
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = Groq(api_key=get_config("GROQ_API_KEY"))
         
         prompt = f"""Extract the Twitter/X username from this URL. Return ONLY the username without @ symbol.
 
@@ -909,7 +920,7 @@ def validate_content_with_llm(content: str, title: str) -> bool:
         if len(content) < 100:
             return len(content) > 50
         
-        client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+        client = Groq(api_key=get_config("GROQ_API_KEY"))
         
         prompt = f"""Is this content meaningful and worth including in a newsletter? Answer YES or NO only.
 

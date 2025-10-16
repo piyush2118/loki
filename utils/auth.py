@@ -9,10 +9,17 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Initialize Supabase client
+# Initialize Supabase client - read from st.secrets if available, else from env
+def get_config(key):
+    """Get config from st.secrets or environment variables"""
+    try:
+        return st.secrets.get(key)
+    except:
+        return os.getenv(key)
+
 supabase = create_client(
-    os.getenv("SUPABASE_URL"),
-    os.getenv("SUPABASE_KEY")
+    get_config("SUPABASE_URL"),
+    get_config("SUPABASE_KEY")
 )
 
 def init_auth():
