@@ -1,0 +1,14 @@
+streamlit
+streamlit-shadcn-ui
+supabase
+groq
+firecrawl-py
+resend
+python-dotenv
+requests
+beautifulsoup4
+feedparser>=6.0.10
+youtube-transcript-api
+langdetect
+pytrends
+schedule
