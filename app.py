@@ -499,7 +499,7 @@ def show_trends():
             trends_to_show = trend_report.get('trends', [])
         
         if trends_to_show:
-            for i, trend in enumerate(trends_to_show[:10], 1):
+            for i, trend in enumerate(trends_to_show[:5], 1):
                 # Determine trend name and score
                 trend_name = trend.get('name', trend.get('topic', 'Unknown'))
                 trend_score = trend.get('composite_score', trend.get('relevance_score', 0))

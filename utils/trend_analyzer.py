@@ -405,7 +405,7 @@ Return only the JSON, no additional text."""
         trend_categories = Counter(trend.get('category', 'Uncategorized') for trend in scored_trends)
         
         return {
-            'trends': scored_trends[:15],  # Top 15 trends
+            'trends': scored_trends[:5],  # Top 5 trends (optimized for performance)
             'metrics': {
                 'total_articles': total_articles,
                 'unique_sources': source_metrics['unique_sources'],
@@ -438,7 +438,8 @@ Return only the JSON, no additional text."""
             market_trends = []
             
             for category in categories:
-                category_trends = google_trends_client.get_trending_topics_for_category(category, limit=5)
+                # Use fallback-enabled method for reliability
+                category_trends = google_trends_client.get_trending_topics_with_fallback(category, limit=5)
                 market_trends.extend([trend['query'] for trend in category_trends])
             
             # Analyze correlation
@@ -510,9 +511,24 @@ Return only the JSON, no additional text."""
         try:
             from utils.google_trends_client import google_trends_client
             categories = list(set(trend.get('category', 'Technology') for trend in user_trends))
+            
+            print(f"🔍 Fetching market intelligence for categories: {categories}")
             market_intelligence = google_trends_client.get_market_intelligence_summary(categories)
-        except:
-            market_intelligence = {}
+            
+            if market_intelligence and market_intelligence.get('overall_trends'):
+                print(f"✅ Market intelligence: {len(market_intelligence['overall_trends'])} trends found")
+            else:
+                print("⚠️ Market intelligence returned empty")
+                
+        except Exception as e:
+            print(f"❌ Error getting market intelligence: {e}")
+            market_intelligence = {
+                'status': 'error',
+                'message': str(e),
+                'categories': {},
+                'overall_trends': [],
+                'recommendations': []
+            }
         
         return {
             'user_trends': user_trends,

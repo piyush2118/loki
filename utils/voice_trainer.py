@@ -192,15 +192,28 @@ Respond ONLY with valid JSON in this exact format:
                 return None
             
             # Aggregate features from multiple samples
+            # Use the most recent sample's features (first in desc order)
+            sample = result.data[0]
+            
+            # Validate all required fields are present
+            required_fields = ['topic_category', 'writing_style', 'voice_characteristics', 
+                             'content_focus', 'target_length_range']
+            
+            for field in required_fields:
+                if not sample.get(field):
+                    print(f"⚠️ Missing required field '{field}' in database for user {user_id}")
+                    return None
+            
             features = {
-                'topic_category': topic_category or result.data[0]['topic_category'],
-                'writing_style': result.data[0]['writing_style'],
-                'voice_characteristics': result.data[0]['voice_characteristics'],
-                'content_focus': result.data[0]['content_focus'],
-                'target_length_range': result.data[0]['target_length_range'],
+                'topic_category': topic_category or sample['topic_category'],
+                'writing_style': sample['writing_style'],
+                'voice_characteristics': sample['voice_characteristics'],
+                'content_focus': sample['content_focus'],
+                'target_length_range': sample['target_length_range'],
                 'sample_count': len(result.data)
             }
             
+            print(f"✅ Loaded features from database for user {user_id} ({len(result.data)} samples)")
             return features
             
         except Exception as e:

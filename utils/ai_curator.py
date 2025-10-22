@@ -27,6 +27,17 @@ def curate_newsletter(articles: list, user_topics: list, user_id: str = None, pr
     if user_id:
         from utils.voice_trainer import voice_trainer
         user_features = voice_trainer.get_user_features(user_id)
+        
+        # DEBUG: Show whether we're using database features or fallback
+        if user_features:
+            print(f"✅ Using database features for user {user_id}:")
+            print(f"   - Writing Style: {user_features.get('writing_style')}")
+            print(f"   - Voice: {user_features.get('voice_characteristics')}")
+            print(f"   - Content Focus: {user_features.get('content_focus')}")
+            print(f"   - Target Length: {user_features.get('target_length_range')}")
+            print(f"   - Sample Count: {user_features.get('sample_count')}")
+        else:
+            print(f"⚠️ No voice training features found for user {user_id} - using neutral fallback")
     
     # Combine articles into context
     context = "\n\n".join([
@@ -91,47 +102,68 @@ INSTRUCTIONS:
     elif user_features:
         prompt = f"""Create a newsletter with these specifications:
 
-WRITING STYLE: {user_features['writing_style']}
-VOICE: {user_features['voice_characteristics']}
-CONTENT FOCUS: {user_features['content_focus']}
-TOPIC: {user_features['topic_category']}
-LENGTH: {user_features['target_length_range']} words
+USER STYLE PROFILE:
+- Writing Style: {user_features['writing_style']}
+- Voice: {user_features['voice_characteristics']}
+- Content Focus: {user_features['content_focus']}
+- Topic Category: {user_features['topic_category']}
+- Target Length: {user_features['target_length_range']} words
+
+REQUIRED TEMPLATE STRUCTURE:
+You MUST follow this exact structure:
+
+**Introduction**
+[2-3 sentences setting context for the articles below. Use {user_features['voice_characteristics']} tone]
+
+**Curated Links:**
+[Select 3-5 most important articles and format as:]
+* **Article Title**: Brief summary (1-2 sentences) explaining why it matters. [Read more](source_url)
+
+**Trends to Watch:**
+[Identify exactly 3 trending topics from the articles AND trending context below. For each:]
+* **Trend Name**: Brief explanation (1-2 sentences) with supporting evidence. [Explore](#)
 
 ARTICLES TO CURATE:
 {context}
 
-INSTRUCTIONS:
-- Follow the writing style and voice characteristics exactly
-- Focus on the specified content type
-- Write within the target length range
-- Use bold headings, bullet points, and italic emphasis
+INSTRUCTIONS FOR STYLE:
+- Apply your {user_features['writing_style']} writing style throughout
+- Maintain {user_features['voice_characteristics']} voice in all sections
+- Focus content on {user_features['content_focus']} when selecting which articles to highlight
+- Total length should be {user_features['target_length_range']} words
+- Use bold headings, bullet points for structure
 - Include descriptive link text like "Read more", "Learn more", "Discover here"
-- End with engaging call-to-action phrases
 
-Generate a newsletter matching these specifications.{feedback_snippet}{trending_snippet}"""
+Generate the newsletter following the template structure exactly.{feedback_snippet}{trending_snippet}"""
         
     else:
-        # Fallback to generic template-based approach
-        prompt = f"""You are an AI newsletter curator. Create a professional newsletter following this template structure:
+        # Fallback: User has not trained their voice - use neutral structure-only approach
+        # NO style assumptions - structure only
+        prompt = f"""You are an AI newsletter curator. Create a newsletter following this exact template:
+
+REQUIRED STRUCTURE:
 
 **Introduction**
 [2-3 sentences setting context about {', '.join(user_topics)}]
 
 **Curated Links:**
-[3 items with descriptions and links]
+[Select 3-5 most important articles and format as:]
+* **Article Title**: Brief summary explaining why it matters. [Read more](url)
 
 **Trends to Watch:**
-[3 items with brief explanations]
+[Identify exactly 3 trending topics. For each:]
+* **Trend Name**: Brief explanation with supporting evidence. [Explore](#)
 
-Articles to curate:
+ARTICLES TO CURATE:
 {context}
 
-Instructions:
-- Write 600-800 words
-- Use professional but accessible tone
-- Include phrases like "we explore", "here's what", "discover more"
-- Use bold headings, bullet points, italic emphasis
-- End with engaging call-to-action phrases{feedback_snippet}{trending_snippet}"""
+INSTRUCTIONS:
+- Follow the template structure exactly
+- Use clear, informative writing
+- Format with bold headings and bullet points
+- Include descriptive link text
+- Keep summaries concise and factual
+NOTE: User has not trained their writing style yet. Use neutral, clear tone.{feedback_snippet}{trending_snippet}"""
     
     # DEBUG: Print the prompt being sent to LLM
     print(f"🔍 PROMPT DEBUG - Revision mode: {revision_mode}")
@@ -152,7 +184,7 @@ Instructions:
     response = client.chat.completions.create(
         model="meta-llama/llama-4-maverick-17b-128e-instruct",
         messages=[{"role": "user", "content": prompt}],
-        temperature=0.5 if revision_mode else 0.7,
+        temperature=0.4 if revision_mode else 0.5,  # Lower for better structure adherence
         max_tokens=2000
     )
     
@@ -169,18 +201,25 @@ Instructions:
 
 
 def _build_trending_context_snippet(trending_context: Dict) -> str:
-    """Build trending context snippet for newsletter generation"""
+    """Build trending context snippet specifically for 'Trends to Watch' section"""
     if not trending_context:
         return ""
     
     snippet_parts = []
+    snippet_parts.append("\n\nTRENDING CONTEXT FOR 'TRENDS TO WATCH' SECTION:")
+    snippet_parts.append("Use the following data to help identify the 3 trends for your 'Trends to Watch' section:")
+    snippet_parts.append("")
     
-    # Add trending topics
+    # Add trending topics from user's sources
     if 'user_trends' in trending_context:
-        trends = trending_context['user_trends'][:5]  # Top 5 trends
+        trends = trending_context['user_trends'][:5]  # Top 5 user trends
         if trends:
-            trend_names = [trend.get('name', trend.get('topic', '')) for trend in trends]
-            snippet_parts.append(f"TRENDING TOPICS: {', '.join(trend_names)}")
+            snippet_parts.append("TOP TRENDS FROM YOUR SOURCES:")
+            for i, trend in enumerate(trends, 1):
+                trend_name = trend.get('name', trend.get('topic', ''))
+                score = trend.get('composite_score', trend.get('relevance_score', 0))
+                snippet_parts.append(f"  {i}. {trend_name} (score: {score:.2f})")
+            snippet_parts.append("")
     
     # Add market trends
     if 'market_intelligence' in trending_context:
@@ -188,17 +227,29 @@ def _build_trending_context_snippet(trending_context: Dict) -> str:
         if 'overall_trends' in market_data:
             market_trends = market_data['overall_trends'][:3]  # Top 3 market trends
             if market_trends:
-                market_names = [trend.get('query', '') for trend in market_trends]
-                snippet_parts.append(f"MARKET TRENDS: {', '.join(market_names)}")
+                snippet_parts.append("BROADER MARKET TRENDS:")
+                for i, trend in enumerate(market_trends, 1):
+                    query = trend.get('query', '')
+                    snippet_parts.append(f"  {i}. {query}")
+                snippet_parts.append("")
     
-    # Add detected spikes
+    # Add detected spikes (high priority)
     if 'detected_spikes' in trending_context:
-        spikes = trending_context['detected_spikes'][:3]  # Top 3 spikes
+        spikes = trending_context['detected_spikes'][:2]  # Top 2 spikes
         if spikes:
-            spike_names = [spike.get('trend_name', '') for spike in spikes]
-            snippet_parts.append(f"TREND SPIKES: {', '.join(spike_names)}")
+            snippet_parts.append("TRENDING SPIKES (High Priority):")
+            for i, spike in enumerate(spikes, 1):
+                spike_name = spike.get('trend_name', '')
+                severity = spike.get('severity', '')
+                snippet_parts.append(f"  {i}. {spike_name} ({severity} spike)")
+            snippet_parts.append("")
     
-    if snippet_parts:
-        return f"\n\nTRENDING CONTEXT:\n{chr(10).join(snippet_parts)}\n\nConsider incorporating these trending topics and market insights into your newsletter where relevant."
+    if len(snippet_parts) > 1:  # More than just the header
+        snippet_parts.append("INSTRUCTIONS:")
+        snippet_parts.append("- Select 3 trends total for 'Trends to Watch' section")
+        snippet_parts.append("- Prioritize spikes if present")
+        snippet_parts.append("- Combine data from both articles AND trending context above")
+        snippet_parts.append("- Each trend should have: name, 1-2 sentence explanation, and relevance to articles")
+        return "\n".join(snippet_parts)
     
     return ""
